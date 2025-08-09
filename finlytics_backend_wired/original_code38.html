@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-heatmap"></script>
+    <script>
+        if (typeof Chart !== 'undefined' && typeof ChartHeatmap !== 'undefined') {
+            Chart.register(ChartHeatmap);
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7fafc;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px; /* Fixed height for charts */
+            width: 100%;
+        }
+        .transaction-row.hidden-row {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app-container" class="min-h-screen">
+        <!-- Authentication Section -->
+        <div id="auth-section" class="flex items-center justify-center min-h-screen">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+                <h1 class="text-2xl font-bold text-center mb-6 text-blue-800">Finance Tracker</h1>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="login-email">Username</label>
+                    <input id="login-email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="email" placeholder="Username">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="login-password">Password</label>
+                    <input id="login-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="Password">
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <button id="login-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">Sign In</button>
+                </div>
+                <div class="text-center">
+                    <a href="#" id="register-link" class="inline-block align-baseline text-sm text-blue-500 hover:text-blue-800">Create an account</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registration Section -->
+        <div id="register-section" class="hidden flex items-center justify-center min-h-screen">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+                <h1 class="text-2xl font-bold text-center mb-6 text-blue-800">Register</h1>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="register-email">Username</label>
+                    <input id="register-email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="email" placeholder="Username">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="register-password">Password</label>
+                    <input id="register-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="Password">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="confirm-password">Confirm Password</label>
+                    <input id="confirm-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="password" placeholder="Confirm Password">
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <button id="register-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">Register</button>
+                </div>
+                <div class="text-center">
+                    <a href="#" id="back-to-login" class="inline-block align-baseline text-sm text-blue-500 hover:text-blue-800">Back to login</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application (hidden until login) -->
+        <div id="main-app" class="hidden">
+            <div class="bg-blue-700 text-white p-4 shadow-md">
+                <div class="container mx-auto flex justify-between items-center">
+                    <h1 class="text-xl font-bold">Finance Tracker</h1>
+                    <div class="flex items-center space-x-4">
+                        <span id="welcome-message"></span>
+                        <button id="logout-btn" class="text-sm bg-blue-800 hover:bg-blue-900 py-1 px-3 rounded">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container mx-auto p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="dashboard-card bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-gray-500 text-sm font-semibold">Total Income</h3>
+                        <p id="total-income" class="text-3xl font-bold text-green-600">$0.00</p>
+                    </div>
+                    <div class="dashboard-card bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-gray-500 text-sm font-semibold">Total Expenses</h3>
+                        <p id="total-expense" class="text-3xl font-bold text-red-600">$0.00</p>
+                    </div>
+                    <div class="dashboard-card bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-gray-500 text-sm font-semibold">Balance</h3>
+                        <p id="total-balance" class="text-3xl font-bold text-blue-600">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-bold mb-4">Add Transaction</h2>
+                    <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="transaction-type">Type</label>
+                            <select id="transaction-type" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="transaction-date">Date</label>
+                            <input id="transaction-date" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="date">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="transaction-amount">Amount</label>
+                            <input id="transaction-amount" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="number" step="0.01" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="transaction-category">Category</label>
+                            <select id="transaction-category" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                <!-- Categories will be populated by JS -->
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline h-10 w-full">Add Transaction</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md flex-1"> <!-- Recent Transactions -->
+                        <h2 class="text-xl font-bold mb-4">Recent Transactions</h2>
+                        <div class="mb-4">
+                            <div class="checkbox-container">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="category-filter" value="all" checked class="hidden">
+                                    <span>All</span>
+                                </label>
+                                <!-- Categories will be added by JS -->
+                            </div>
+                        </div>
+                        <div class="overflow-auto">
+                            <table id="transactions-table" class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Transactions will be added by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-4">
+                            <button id="toggle-transactions-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Show More
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md w-1/2"> <!-- Reports -->
+                        <h2 class="text-xl font-bold mb-4">Reports</h2>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="report-period">Period</label>
+                            <select id="report-period" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                <option value="month">Monthly</option>
+                                <option value="week">Weekly</option>
+                                <option value="year">Yearly</option>
+                            </select>
+                        </div>
+                        <div class="chart-container mb-6">
+                            <canvas id="income-expense-chart"></canvas>
+                        </div>
+                        <div class="chart-container mb-6">
+                            <canvas id="income-line-chart"></canvas> <!-- Line Chart for Income Trend -->
+                        </div>
+                        <div class="chart-container mb-6">
+                            <canvas id="category-stacked-bar-chart"></canvas> <!-- Stacked Bar Chart for Expense Breakdown -->
+                        </div>
+                        <div class="chart-container mb-6">
+                            <canvas id="expense-donut-chart"></canvas> <!-- Donut Chart for Expense Breakdown -->
+                        </div>
+                        <div class="chart-container mb-6">
+                            <canvas id="radical-bar-chart"></canvas> <!-- Radical Bar Chart (Polar Area) -->
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="category-heatmap-chart"></canvas> <!-- Heatmap Chart -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
+            <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+                <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
+                <p class="mb-4">Are you sure you want to delete this transaction?</p>
+                <div class="flex justify-end space-x-4">
+                    <button id="modal-cancel" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">Cancel</button>
+                    <button id="modal-confirm" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // App State
+        const state = {
+            currentUser: null,
+            transactions: [],
+            categories: [
+                { id: 'food', name: 'Food', type: 'expense' },
+                { id: 'transport', name: 'Transport', type: 'expense' },
+                { id: 'housing', name: 'Housing', type: 'expense' },
+                { id: 'entertainment', name: 'Entertainment', type: 'expense' },
+                { id: 'health', name: 'Health', type: 'expense' },
+                { id: 'education', name: 'Education', type: 'expense' },
+                { id: 'shopping', name: 'Shopping', type: 'expense' },
+                { id: 'other-expense', name: 'Other', type: 'expense' },
+                { id: 'salary', name: 'Salary', type: 'income' },
+                { id: 'business', name: 'Business', type: 'income' },
+                { id: 'gifts', name: 'Gifts', type: 'income' },
+                { id: 'investment', name: 'Investment', type: 'income' },
+                { id: 'other-income', name: 'Other', type: 'income' }
+            ],
+            filters: {
+                category: 'all'
+            },
+            reportPeriod: 'month',
+            selectedTransaction: null,
+            incomeExpenseChart: null,
+            incomeLineChart: null,
+            categoryStackedBarChart: null,
+            expenseDonutChart: null,
+            radicalBarChart: null, // Added for the new chart
+            categoryHeatmapChart: null,
+            showAllTransactions: false // Flag for pagination
+        };
+
+        // DOM Elements
+        const elements = {
+            authSection: document.getElementById('auth-section'),
+            registerSection: document.getElementById('register-section'),
+            mainApp: document.getElementById('main-app'),
+            loginEmail: document.getElementById('login-email'),
+            loginPassword: document.getElementById('login-password'),
+            loginBtn: document.getElementById('login-btn'),
+            registerLink: document.getElementById('register-link'),
+            registerEmail: document.getElementById('register-email'),
+            registerPassword: document.getElementById('register-password'),
+            confirmPassword: document.getElementById('confirm-password'),
+            registerBtn: document.getElementById('register-btn'),
+            backToLogin: document.getElementById('back-to-login'),
+            welcomeMessage: document.getElementById('welcome-message'),
+            logoutBtn: document.getElementById('logout-btn'),
+            transactionForm: document.getElementById('transaction-form'),
+            transactionType: document.getElementById('transaction-type'),
+            transactionDate: document.getElementById('transaction-date'),
+            transactionAmount: document.getElementById('transaction-amount'),
+            transactionCategory: document.getElementById('transaction-category'),
+            transactionsBody: document.getElementById('transactions-body'),
+            checkboxContainer: document.querySelector('.checkbox-container'),
+            reportPeriod: document.getElementById('report-period'),
+            totalIncome: document.getElementById('total-income'),
+            totalExpense: document.getElementById('total-expense'),
+            totalBalance: document.getElementById('total-balance'),
+            modal: document.getElementById('modal'),
+            modalCancel: document.getElementById('modal-cancel'),
+            modalConfirm: document.getElementById('modal-confirm'),
+            incomeExpenseCanvas: document.getElementById('income-expense-chart'),
+            incomeLineCanvas: document.getElementById('income-line-chart'),
+            categoryStackedBarCanvas: document.getElementById('category-stacked-bar-chart'),
+            expenseDonutCanvas: document.getElementById('expense-donut-chart'),
+            radicalBarCanvas: document.getElementById('radical-bar-chart'), // Added for the new chart
+            categoryHeatmapCanvas: document.getElementById('category-heatmap-chart'),
+            toggleTransactionsBtn: document.getElementById('toggle-transactions-btn')
+        };
+
+        // Helper Functions
+        function formatCurrency(amount) {
+            return '₹' + new Intl.NumberFormat('en-IN').format(amount);
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function getWeekNumber(date) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+            const week1 = new Date(d.getFullYear(), 0, 4);
+            return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+        }
+
+        function populateCategories() {
+            elements.transactionCategory.innerHTML = '';
+            const type = elements.transactionType.value;
+
+            state.categories.filter(cat => cat.type === type).forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                elements.transactionCategory.appendChild(option);
+            });
+        }
+
+        function populateCategoryCheckboxes() {
+            const expenseCategories = state.categories.filter(cat => cat.type === 'expense');
+            const incomeCategories = state.categories.filter(cat => cat.type === 'income');
+
+            elements.checkboxContainer.innerHTML = `
+                <label class="checkbox-label">
+                    <input type="checkbox" name="category-filter" value="all" checked class="hidden">
+                    <span>All</span>
+                </label>
+                <div class="border-l border-gray-300 h-6"></div>
+                <span class="text-sm font-semibold">Expenses</span>
+            `;
+
+            expenseCategories.forEach(category => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML = `
+                    <input type="checkbox" name="category-filter" value="${category.id}" class="hidden">
+                    <span>${category.name}</span>
+                `;
+                elements.checkboxContainer.appendChild(label);
+            });
+
+            const incomeDivider = document.createElement('div');
+            incomeDivider.className = 'border-l border-gray-300 h-6';
+            elements.checkboxContainer.appendChild(incomeDivider);
+
+            const incomeTitle = document.createElement('span');
+            incomeTitle.className = 'text-sm font-semibold';
+            incomeTitle.textContent = 'Income';
+            elements.checkboxContainer.appendChild(incomeTitle);
+
+            incomeCategories.forEach(category => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML = `
+                    <input type="checkbox" name="category-filter" value="${category.id}" class="hidden">
+                    <span>${category.name}</span>
+                `;
+                elements.checkboxContainer.appendChild(label);
+            });
+
+            document.querySelectorAll('input[name="category-filter"]').forEach(checkbox => {
+                checkbox.addEventListener('change', handleCategoryFilter);
+            });
+        }
+
+        function calculateTotals() {
+            const income = state.transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+            const expense = state.transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+            elements.totalIncome.textContent = formatCurrency(income);
+            elements.totalExpense.textContent = formatCurrency(expense);
+            elements.totalBalance.textContent = formatCurrency(income - expense);
+        }
+
+        function renderTransactions() {
+            elements.transactionsBody.innerHTML = '';
+
+            const filteredTransactions = state.transactions.filter(transaction => {
+                if (state.filters.category === 'all') return true;
+                return transaction.category === state.filters.category;
+            });
+
+            if (filteredTransactions.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                        No transactions found
+                    </td>
+                `;
+                elements.transactionsBody.appendChild(row);
+                elements.toggleTransactionsBtn.classList.add('hidden'); // Hide button if no transactions
+                return;
+            }
+
+            filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                // Apply hidden-row class if index is 20 or more and showAllTransactions is false
+                row.className = `transaction-row ${transaction.type === 'income' ? 'bg-green-50' : 'bg-red-50'} ${index >= 20 && !state.showAllTransactions ? 'hidden-row' : ''}`;
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${formatDate(transaction.date)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs rounded-full ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">${transaction.categoryName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}">
+                        ${formatCurrency(parseFloat(transaction.amount))}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button class="delete-btn text-red-500 hover:text-red-700 text-sm" data-id="${transaction.id}">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                elements.transactionsBody.appendChild(row);
+            });
+
+            // Show/hide toggle button based on number of transactions
+            if (filteredTransactions.length > 20) {
+                elements.toggleTransactionsBtn.classList.remove('hidden');
+                elements.toggleTransactionsBtn.textContent = state.showAllTransactions ? 'Show Less' : 'Show More';
+            } else {
+                elements.toggleTransactionsBtn.classList.add('hidden');
+            }
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const id = btn.getAttribute('data-id');
+                    const transaction = state.transactions.find(t => t.id === id);
+                    state.selectedTransaction = transaction;
+                    elements.modal.classList.remove('hidden');
+                });
+            });
+        }
+
+        function renderCharts() {
+            // Destroy existing charts if they exist
+            if (state.incomeExpenseChart) {
+                state.incomeExpenseChart.destroy();
+            }
+            if (state.incomeLineChart) {
+                state.incomeLineChart.destroy();
+            }
+            if (state.categoryStackedBarChart) {
+                state.categoryStackedBarChart.destroy();
+            }
+            if (state.expenseDonutChart) {
+                state.expenseDonutChart.destroy();
+            }
+            if (state.radicalBarChart) { // Destroy Radical Bar Chart
+                state.radicalBarChart.destroy();
+            }
+            if (state.categoryHeatmapChart) {
+                state.categoryHeatmapChart.destroy();
+            }
+
+            // Group transactions by period for Income vs Expense Chart and Income Line Chart
+            let labels = [];
+            let incomeData = [];
+            let expenseData = [];
+
+            if (state.reportPeriod === 'month') {
+                const monthMap = {};
+                const now = new Date();
+                for (let i = 5; i >= 0; i--) {
+                    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    monthMap[monthYear] = { income: 0, expense: 0 };
+                    labels.push(monthYear);
+                }
+                state.transactions.forEach(transaction => {
+                    const date = new Date(transaction.date);
+                    const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+                    // Only consider transactions within the last 6 months for the bar chart
+                    const sixMonthsAgo = new Date();
+                    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                    if (date >= sixMonthsAgo) {
+                        if (monthMap[monthYear]) {
+                            if (transaction.type === 'income') {
+                                monthMap[monthYear].income += parseFloat(transaction.amount);
+                            } else {
+                                monthMap[monthYear].expense += parseFloat(transaction.amount);
+                            }
+                        }
+                    }
+                });
+                for (const month of labels) {
+                    incomeData.push(monthMap[month].income);
+                    expenseData.push(monthMap[month].expense);
+                }
+            } else if (state.reportPeriod === 'week') {
+                const weekMap = {};
+                const now = new Date();
+                const currentWeek = getWeekNumber(now);
+
+                // Generate labels for the last 6 weeks
+                for (let i = 5; i >= 0; i--) {
+                    const date = new Date(now);
+                    date.setDate(now.getDate() - (i * 7)); // Go back i weeks
+                    const weekNum = getWeekNumber(date);
+                    const year = date.getFullYear();
+                    const weekLabel = `W${weekNum}-${year}`;
+                    weekMap[weekLabel] = { income: 0, expense: 0 };
+                    labels.push(weekLabel);
+                }
+
+                state.transactions.forEach(transaction => {
+                    const date = new Date(transaction.date);
+                    const weekNum = getWeekNumber(date);
+                    const year = date.getFullYear();
+                    const weekLabel = `W${weekNum}-${year}`;
+
+                    // Only consider transactions within the last 6 weeks for the bar chart
+                    const sixWeeksAgo = new Date();
+                    sixWeeksAgo.setDate(sixWeeksAgo.getDate() - (6 * 7));
+                    if (date >= sixWeeksAgo) {
+                        if (weekMap[weekLabel]) {
+                            if (transaction.type === 'income') {
+                                weekMap[weekLabel].income += parseFloat(transaction.amount);
+                            } else {
+                                weekMap[weekLabel].expense += parseFloat(transaction.amount);
+                            }
+                        }
+                    }
+                });
+                // Ensure labels are sorted chronologically
+                labels.sort((a, b) => {
+                    const [aWeek, aYear] = a.substring(1).split('-').map(Number);
+                    const [bWeek, bYear] = b.substring(1).split('-').map(Number);
+                    if (aYear !== bYear) return aYear - bYear;
+                    return aWeek - bWeek;
+                });
+                incomeData = labels.map(label => weekMap[label].income);
+                expenseData = labels.map(label => weekMap[label].expense);
+
+            } else { // Yearly report
+                const yearMap = {};
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                for (let i = 5; i >= 0; i--) {
+                    const year = currentYear - i;
+                    yearMap[year] = { income: 0, expense: 0 };
+                    labels.push(year.toString());
+                }
+                state.transactions.forEach(transaction => {
+                    const date = new Date(transaction.date);
+                    const year = date.getFullYear();
+
+                    // Only consider transactions within the last 5 years for the bar chart
+                    const fiveYearsAgo = new Date();
+                    fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+                    if (date >= fiveYearsAgo) {
+                        if (yearMap[year]) {
+                            if (transaction.type === 'income') {
+                                yearMap[year].income += parseFloat(transaction.amount);
+                            } else {
+                                yearMap[year].expense += parseFloat(transaction.amount);
+                            }
+                        }
+                    }
+                });
+                for (const year of labels) {
+                    incomeData.push(yearMap[year].income);
+                    expenseData.push(yearMap[year].expense);
+                }
+            }
+
+            // Income vs Expense Bar Chart
+            const incomeExpenseCtx = elements.incomeExpenseCanvas.getContext('2d');
+            state.incomeExpenseChart = new Chart(incomeExpenseCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: incomeData,
+                            backgroundColor: 'rgba(74, 222, 128, 0.7)',
+                            borderColor: 'rgba(74, 222, 128, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Expense',
+                            data: expenseData,
+                            backgroundColor: 'rgba(248, 113, 113, 0.7)',
+                            borderColor: 'rgba(248, 113, 113, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Income Line Chart
+            const incomeLineCtx = elements.incomeLineCanvas.getContext('2d');
+            state.incomeLineChart = new Chart(incomeLineCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Income Trend',
+                        data: incomeData,
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointBackgroundColor: 'rgb(75, 192, 192)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(75, 192, 192)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Income Trend Over Time'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Category Stacked Bar Chart (Expense Breakdown)
+            const expenseCategories = state.categories.filter(cat => cat.type === 'expense');
+            const stackedBarDatasets = expenseCategories.map(category => {
+                const dataForCategory = labels.map(label => {
+                    let total = 0;
+                    state.transactions.forEach(transaction => {
+                        const date = new Date(transaction.date);
+                        let periodLabel;
+                        if (state.reportPeriod === 'month') {
+                            periodLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        } else if (state.reportPeriod === 'week') {
+                            periodLabel = `W${getWeekNumber(date)}-${date.getFullYear()}`;
+                        } else { // year
+                            periodLabel = date.getFullYear().toString();
+                        }
+
+                        if (transaction.type === 'expense' && transaction.category === category.id && periodLabel === label) {
+                            total += parseFloat(transaction.amount);
+                        }
+                    });
+                    return total;
+                });
+
+                // Assign a consistent color for each category
+                const categoryColors = {
+                    'food': 'rgba(255, 99, 132, 0.7)',
+                    'transport': 'rgba(54, 162, 235, 0.7)',
+                    'housing': 'rgba(255, 206, 86, 0.7)',
+                    'entertainment': 'rgba(75, 192, 192, 0.7)',
+                    'health': 'rgba(153, 102, 255, 0.7)',
+                    'education': 'rgba(255, 159, 64, 0.7)',
+                    'shopping': 'rgba(199, 199, 199, 0.7)',
+                    'other-expense': 'rgba(83, 102, 255, 0.7)'
+                };
+
+                return {
+                    label: category.name,
+                    data: dataForCategory,
+                    backgroundColor: categoryColors[category.id] || 'rgba(100, 100, 100, 0.7)', // Fallback color
+                    borderColor: categoryColors[category.id] ? categoryColors[category.id].replace('0.7', '1') : 'rgba(100, 100, 100, 1)',
+                    borderWidth: 1
+                };
+            });
+
+            const categoryStackedBarCtx = elements.categoryStackedBarCanvas.getContext('2d');
+            state.categoryStackedBarChart = new Chart(categoryStackedBarCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: stackedBarDatasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: state.reportPeriod.charAt(0).toUpperCase() + state.reportPeriod.slice(1)
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Amount'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Expense Breakdown by Category (Stacked Bar Chart)'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    return `${label}: ${formatCurrency(context.raw)}`;
+                                },
+                                footer: function(tooltipItems) {
+                                    let sum = 0;
+                                    tooltipItems.forEach(function(tooltipItem) {
+                                        sum += tooltipItem.raw;
+                                    });
+                                    return 'Total: ' + formatCurrency(sum);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Expense Donut Chart
+            const expenseDonutData = {};
+            state.transactions.forEach(transaction => {
+                if (transaction.type === 'expense') { // Only expenses for donut chart
+                    if (!expenseDonutData[transaction.categoryName]) {
+                        expenseDonutData[transaction.categoryName] = 0;
+                    }
+                    expenseDonutData[transaction.categoryName] += parseFloat(transaction.amount);
+                }
+            });
+
+            const donutLabels = Object.keys(expenseDonutData);
+            const donutAmounts = Object.values(expenseDonutData);
+
+            const expenseDonutCtx = elements.expenseDonutCanvas.getContext('2d');
+            state.expenseDonutChart = new Chart(expenseDonutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: donutLabels,
+                    datasets: [{
+                        data: donutAmounts,
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.7)', // blue
+                            'rgba(16, 185, 129, 0.7)', // emerald
+                            'rgba(245, 158, 11, 0.7)', // amber
+                            'rgba(244, 63, 94, 0.7)', // rose
+                            'rgba(139, 92, 246, 0.7)', // violet
+                            'rgba(20, 184, 166, 0.7)', // teal
+                            'rgba(234, 88, 12, 0.7)', // orange
+                            'rgba(220, 38, 38, 0.7)', // red
+                            'rgba(5, 150, 105, 0.7)', // green
+                            'rgba(217, 119, 6, 0.7)' // yellow-orange
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Expense Categories Breakdown (Donut Chart)'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = donutAmounts.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Radical Bar Chart (Polar Area Chart)
+            const radicalBarData = {};
+            state.transactions.forEach(transaction => {
+                if (transaction.type === 'expense') { // Using expenses for this chart as well
+                    if (!radicalBarData[transaction.categoryName]) {
+                        radicalBarData[transaction.categoryName] = 0;
+                    }
+                    radicalBarData[transaction.categoryName] += parseFloat(transaction.amount);
+                }
+            });
+
+            const radicalBarLabels = Object.keys(radicalBarData);
+            const radicalBarAmounts = Object.values(radicalBarData);
+
+            const radicalBarCtx = elements.radicalBarCanvas.getContext('2d');
+            state.radicalBarChart = new Chart(radicalBarCtx, {
+                type: 'polarArea',
+                data: {
+                    labels: radicalBarLabels,
+                    datasets: [{
+                        data: radicalBarAmounts,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)', // Red
+                            'rgba(54, 162, 235, 0.7)', // Blue
+                            'rgba(255, 206, 86, 0.7)', // Yellow
+                            'rgba(75, 192, 192, 0.7)', // Green
+                            'rgba(153, 102, 255, 0.7)', // Purple
+                            'rgba(255, 159, 64, 0.7)', // Orange
+                            'rgba(199, 199, 199, 0.7)', // Gray
+                            'rgba(83, 102, 255, 0.7)' // Indigo
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Expense Categories (Polar Area Chart)'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = radicalBarAmounts.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            pointLabels: {
+                                display: true,
+                                centerPointLabels: true,
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            ticks: {
+                                display: false // Hide radial ticks
+                            }
+                        }
+                    }
+                }
+            });
+
+
+            // Category vs. Month Heatmap Chart
+            const heatmapData = [];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const expenseCategoryNames = state.categories.filter(cat => cat.type === 'expense').map(cat => cat.name);
+
+            // Initialize heatmap data structure for the current year's expenses
+            const currentYear = new Date().getFullYear();
+            const monthlyCategoryExpenses = {};
+            expenseCategoryNames.forEach(catName => {
+                monthlyCategoryExpenses[catName] = {};
+                months.forEach(month => {
+                    monthlyCategoryExpenses[catName][month] = 0;
+                });
+            });
+
+            // Aggregate data for the heatmap (only current year's expenses)
+            state.transactions.forEach(transaction => {
+                const date = new Date(transaction.date);
+                if (transaction.type === 'expense' && date.getFullYear() === currentYear) {
+                    const monthName = months[date.getMonth()];
+                    const categoryName = transaction.categoryName;
+                    if (monthlyCategoryExpenses[categoryName] && monthlyCategoryExpenses[categoryName][monthName] !== undefined) {
+                        monthlyCategoryExpenses[categoryName][monthName] += parseFloat(transaction.amount);
+                    }
+                }
+            });
+
+            // Prepare data for heatmap dataset
+            let maxAmount = 0;
+            expenseCategoryNames.forEach((catName) => {
+                months.forEach((monthName) => {
+                    const amount = monthlyCategoryExpenses[catName][monthName];
+                    heatmapData.push({
+                        x: monthName,
+                        y: catName,
+                        v: amount
+                    });
+                    if (amount > maxAmount) {
+                        maxAmount = amount;
+                    }
+                });
+            });
+
+            const categoryHeatmapCtx = elements.categoryHeatmapCanvas.getContext('2d');
+            state.categoryHeatmapChart = new Chart(categoryHeatmapCtx, {
+                type: 'heatmap',
+                data: {
+                    xLabels: months, // X-axis labels (Months)
+                    yLabels: expenseCategoryNames, // Y-axis labels (Categories)
+                    datasets: [{
+                        label: 'Monthly Expense by Category',
+                        data: heatmapData,
+                        backgroundColor: (context) => {
+                            const value = context.raw.v;
+                            if (value === 0) return 'rgba(240, 240, 240, 1)'; // Light gray for zero
+                            // Scale from light red to dark red based on intensity
+                            const intensity = value / maxAmount; // Normalize to 0-1
+                            // Using HSL for better color control: Hue (red), Saturation (full), Lightness (from light to dark)
+                            // Lightness goes from ~90% (for low intensity) to ~40% (for high intensity)
+                            const lightness = 90 - (intensity * 50); // 90 -> 40
+                            return `hsl(0, 100%, ${lightness}%)`; // Red color scale
+                        },
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        hoverBackgroundColor: 'rgba(0, 0, 0, 0.2)',
+                        hoverBorderColor: '#000'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'category',
+                            labels: months, // Redundant with xLabels in data, but good for clarity
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        },
+                        y: {
+                            type: 'category',
+                            labels: expenseCategoryNames, // Redundant with yLabels in data, but good for clarity
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Category'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Monthly Expense Heatmap by Category (${currentYear})`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    // context[0].raw.y is category, context[0].raw.x is month
+                                    return `${context[0].raw.y} in ${context[0].raw.x}`;
+                                },
+                                label: function(context) {
+                                    return `Amount: ${formatCurrency(context.raw.v)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event Handlers
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = elements.loginEmail.value;
+            const password = elements.loginPassword.value;
+
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
+
+            const users = JSON.parse(localStorage.getItem('financeTrackerUsers')) || [];
+            const user = users.find(u => u.email === username && u.password === password);
+
+            if (user) {
+                state.currentUser = user;
+
+                state.transactions = JSON.parse(localStorage.getItem(`financeTrackerTransactions_${user.email}`)) || [];
+
+                state.transactions.forEach(transaction => {
+                    const category = state.categories.find(cat => cat.id === transaction.category);
+                    transaction.categoryName = category ? category.name : 'Unknown';
+                });
+
+                elements.welcomeMessage.textContent = `Welcome, ${user.email}`;
+                elements.authSection.classList.add('hidden');
+                elements.mainApp.classList.remove('hidden');
+
+                elements.transactionDate.value = new Date().toISOString().split('T')[0];
+                populateCategories();
+                populateCategoryCheckboxes();
+                calculateTotals();
+                renderTransactions();
+                renderCharts();
+            } else {
+                alert('Invalid username or password');
+            }
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const username = elements.registerEmail.value;
+            const password = elements.registerPassword.value;
+            const confirmPassword = elements.confirmPassword.value;
+
+            if (!username || !password || !confirmPassword) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+
+            const users = JSON.parse(localStorage.getItem('financeTrackerUsers')) || [];
+
+            if (users.some(u => u.email === username)) {
+                alert('Username already registered');
+                return;
+            }
+
+            users.push({ email: username, password });
+            localStorage.setItem('financeTrackerUsers', JSON.stringify(users));
+
+            alert('Registration successful. Please login.');
+            elements.registerSection.classList.add('hidden');
+            elements.authSection.classList.remove('hidden');
+
+            elements.registerEmail.value = '';
+            elements.registerPassword.value = '';
+            elements.confirmPassword.value = '';
+        }
+
+        function handleTransactionSubmit(e) {
+            e.preventDefault();
+
+            const type = elements.transactionType.value;
+            const date = elements.transactionDate.value;
+            const amount = elements.transactionAmount.value;
+            const category = elements.transactionCategory.value;
+
+            if (!date || !amount || !category) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            const categoryObj = state.categories.find(cat => cat.id === category);
+            const categoryName = categoryObj ? categoryObj.name : 'Unknown';
+
+            const transaction = {
+                id: Date.now().toString(),
+                type,
+                date,
+                amount: parseFloat(amount).toFixed(2),
+                category,
+                categoryName
+            };
+
+            state.transactions.push(transaction);
+
+            localStorage.setItem(`financeTrackerTransactions_${state.currentUser.email}`, JSON.stringify(state.transactions));
+
+            elements.transactionAmount.value = '';
+
+            calculateTotals();
+            renderTransactions();
+            renderCharts();
+        }
+
+        function handleCategoryFilter(e) {
+            const selectedCheckboxes = document.querySelectorAll('input[name="category-filter"]:checked');
+
+            if (selectedCheckboxes.length === 0) {
+                e.target.checked = true;
+                state.filters.category = 'all';
+            } else {
+                const allSelected = Array.from(selectedCheckboxes).some(cb => cb.value === 'all');
+
+                if (allSelected) {
+                    document.querySelectorAll('input[name="category-filter"]').forEach(cb => {
+                        if (cb.value !== 'all') cb.checked = false;
+                    });
+                    state.filters.category = 'all';
+                } else {
+                    document.querySelector('input[name="category-filter"][value="all"]').checked = false;
+                    state.filters.category = selectedCheckboxes[0].value;
+                }
+            }
+
+            renderTransactions();
+        }
+
+        function handleReportPeriodChange() {
+            state.reportPeriod = elements.reportPeriod.value;
+            renderCharts();
+        }
+
+        function handleDeleteTransaction() {
+            state.transactions = state.transactions.filter(t => t.id !== state.selectedTransaction.id);
+            localStorage.setItem(`financeTrackerTransactions_${state.currentUser.email}`, JSON.stringify(state.transactions));
+
+            elements.modal.classList.add('hidden');
+            state.selectedTransaction = null;
+
+            calculateTotals();
+            renderTransactions();
+            renderCharts();
+        }
+
+        function handleLogout() {
+            state.currentUser = null;
+            elements.mainApp.classList.add('hidden');
+            elements.authSection.classList.remove('hidden');
+
+            elements.loginEmail.value = '';
+            elements.loginPassword.value = '';
+        }
+
+        function toggleRegister(e) {
+            e.preventDefault();
+            elements.authSection.classList.add('hidden');
+            elements.registerSection.classList.remove('hidden');
+        }
+
+        function toggleLogin(e) {
+            e.preventDefault();
+            elements.registerSection.classList.add('hidden');
+            elements.authSection.classList.remove('hidden');
+        }
+
+        function toggleTransactionsVisibility() {
+            state.showAllTransactions = !state.showAllTransactions;
+            renderTransactions();
+        }
+
+        // Data Generation Function
+        function generateRandomTransactions(userEmail) {
+            const existingTransactions = JSON.parse(localStorage.getItem(`financeTrackerTransactions_${userEmail}`));
+            if (existingTransactions && existingTransactions.length > 0) {
+                return; // Do not generate if data already exists
+            }
+
+            // Use the provided specific data
+            const specificTransactions = [
+                { "id": "2020-01-10-1", "type": "income", "date": "2020-01-10", "amount": "52000.00", "category": "salary", "categoryName": "Salary" },
+                { "id": "2020-03-15-2", "type": "expense", "date": "2020-03-15", "amount": "1800.00", "category": "transport", "categoryName": "Transport" },
+                { "id": "2021-06-18-3", "type": "income", "date": "2021-06-18", "amount": "15000.00", "category": "business", "categoryName": "Business" },
+                { "id": "2022-02-08-4", "type": "expense", "date": "2022-02-08", "amount": "7000.00", "category": "housing", "categoryName": "Housing" },
+                { "id": "2023-08-12-5", "type": "expense", "date": "2023-08-12", "amount": "1200.00", "category": "food", "categoryName": "Food" },
+                { "id": "2024-11-25-6", "type": "income", "date": "2024-11-25", "amount": "10000.00", "category": "investment", "categoryName": "Investment" },
+                { "id": "2025-01-05-7", "type": "expense", "date": "2025-01-05", "amount": "900.00", "category": "entertainment", "categoryName": "Entertainment" },
+                { "id": "2025-02-14-8", "type": "income", "date": "2025-02-14", "amount": "48000.00", "category": "salary", "categoryName": "Salary" },
+                { "id": "2025-03-22-9", "type": "expense", "date": "2025-03-22", "amount": "650.00", "category": "shopping", "categoryName": "Shopping" },
+                { "id": "2025-04-11-10", "type": "expense", "date": "2025-04-11", "amount": "2000.00", "category": "health", "categoryName": "Health" },
+                { "id": "2025-05-19-11", "type": "income", "date": "2025-05-19", "amount": "56000.00", "category": "business", "categoryName": "Business" },
+                { "id": "2025-06-27-12", "type": "expense", "date": "2025-06-27", "amount": "1200.00", "category": "education", "categoryName": "Education" },
+                { "id": "2025-07-04-13", "type": "expense", "date": "2025-07-04", "amount": "1700.00", "category": "food", "categoryName": "Food" },
+                { "id": "2025-08-01-14", "type": "income", "date": "2025-08-01", "amount": "4000.00", "category": "gifts", "categoryName": "Gifts" },
+                { "id": "2025-W25-15", "type": "expense", "date": "2025-06-17", "amount": "1300.00", "category": "shopping", "categoryName": "Shopping" },
+                { "id": "2025-W26-16", "type": "income", "date": "2025-06-24", "amount": "52000.00", "category": "salary", "categoryName": "Salary" },
+                { "id": "2025-W27-17", "type": "expense", "date": "2025-07-01", "amount": "3000.00", "category": "health", "categoryName": "Health" },
+                { "id": "2025-W28-18", "type": "expense", "date": "2025-07-08", "amount": "1800.00", "category": "education", "categoryName": "Education" },
+                { "id": "2025-W29-19", "type": "income", "date": "2025-07-15", "amount": "6000.00", "category": "gifts", "categoryName": "Gifts" },
+                { "id": "2025-W30-20", "type": "expense", "date": "2025-07-22", "amount": "950.00", "category": "transport", "categoryName": "Transport" },
+                { "id": "2025-W31-21", "type": "income", "date": "2025-07-29", "amount": "10000.00", "category": "other-income", "categoryName": "Other" },
+                { "id": "2025-W32-22", "type": "expense", "date": "2025-08-05", "amount": "1350.00", "category": "entertainment", "categoryName": "Entertainment" }
+            ];
+
+            // Add categoryName to each transaction based on state.categories
+            const transactionsWithCategoryNames = specificTransactions.map(t => {
+                const category = state.categories.find(cat => cat.id === t.category);
+                return {
+                    ...t,
+                    categoryName: category ? category.name : 'Unknown'
+                };
+            });
+
+            localStorage.setItem(`financeTrackerTransactions_${userEmail}`, JSON.stringify(transactionsWithCategoryNames));
+        }
+
+        // Initial Setup
+        function initializeApp() {
+            // Ensure a test user exists
+            let users = JSON.parse(localStorage.getItem('financeTrackerUsers')) || [];
+            if (!users.some(u => u.email === 'harika')) {
+                users.push({ email: 'harika', password: '1234' });
+                localStorage.setItem('financeTrackerUsers', JSON.stringify(users));
+            }
+
+            // Generate random data for the test user if not already present
+            generateRandomTransactions('harika');
+
+            // Initialize with login screen
+            elements.authSection.classList.remove('hidden');
+            elements.mainApp.classList.add('hidden');
+            elements.registerSection.classList.add('hidden');
+        }
+
+        // Initialize Event Listeners
+        elements.loginBtn.addEventListener('click', handleLogin);
+        elements.registerBtn.addEventListener('click', handleRegister);
+        elements.registerLink.addEventListener('click', toggleRegister);
+        elements.backToLogin.addEventListener('click', toggleLogin);
+        elements.logoutBtn.addEventListener('click', handleLogout);
+        elements.transactionForm.addEventListener('submit', handleTransactionSubmit);
+        elements.transactionType.addEventListener('change', populateCategories);
+        elements.reportPeriod.addEventListener('change', handleReportPeriodChange);
+        elements.modalCancel.addEventListener('click', () => elements.modal.classList.add('hidden'));
+        elements.modalConfirm.addEventListener('click', handleDeleteTransaction);
+        elements.toggleTransactionsBtn.addEventListener('click', toggleTransactionsVisibility);
+
+        // Run initial app setup
+        initializeApp();
+    </script>
+</body>
+</html>
