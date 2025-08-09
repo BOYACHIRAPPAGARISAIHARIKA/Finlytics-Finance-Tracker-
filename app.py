@@ -2,9 +2,15 @@ import os
 from flask import Flask, render_template, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta
+from datetime import timedelta, datetime
+from flask_cors import CORS
+import random
+from marshmallow import Schema, fields, validate
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app, supports_credentials=True)  # Enable CORS with cookie/session support
+
+# Secret key for sessions
 app.secret_key = os.environ.get('FLASK_SECRET', 'change-me-in-prod')
 app.permanent_session_lifetime = timedelta(days=7)
 
@@ -38,7 +44,26 @@ class Transaction(db.Model):
     category = db.Column(db.String(100), nullable=False)
     categoryName = db.Column(db.String(100))
 
+# Input validation schema
+class TransactionSchema(Schema):
+    type = fields.Str(required=True, validate=validate.OneOf(["income", "expense"]))
+    date = fields.Str(required=True)
+    amount = fields.Float(required=True, validate=validate.Range(min=0))
+    category = fields.Str(required=True)
+    categoryName = fields.Str()
+
+# Helper: get user email from session or query param
+def require_user():
+    user_email = session.get('user_email') or request.args.get('user_email')
+    return user_email
+
+# Custom error handler for 404 errors
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'not found'}), 404
+
 # Routes
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -84,9 +109,6 @@ def logout():
     session.pop('user_email', None)
     return jsonify({'ok': True})
 
-def require_user():
-    return session.get('user_email') or request.args.get('user_email')
-
 @app.route('/api/transactions', methods=['GET', 'POST'])
 def transactions():
     user_email = require_user()
@@ -95,7 +117,7 @@ def transactions():
 
     if request.method == 'GET':
         txs = Transaction.query.filter_by(user_email=user_email).order_by(Transaction.date.desc()).all()
-        result = [ {
+        result = [{
             'id': tx.id,
             'user_email': tx.user_email,
             'type': tx.type,
@@ -103,32 +125,34 @@ def transactions():
             'amount': tx.amount,
             'category': tx.category,
             'categoryName': tx.categoryName or tx.category
-        } for tx in txs ]
+        } for tx in txs]
         return jsonify(result)
 
-    else:
-        data = request.json or {}
-        ttype = data.get('type')
-        date = data.get('date')
-        amount = data.get('amount')
-        category = data.get('category')
-        categoryName = data.get('categoryName') or category
+    # POST to add transaction
+    schema = TransactionSchema()
+    errors = schema.validate(request.json)
+    if errors:
+        return jsonify(errors), 400
 
-        if not all([ttype, date, amount, category]):
-            return jsonify({'error': 'missing fields'}), 400
+    data = request.json
+    ttype = data['type']
+    date = data['date']
+    amount = data['amount']
+    category = data['category']
+    categoryName = data.get('categoryName') or category
 
-        tx = Transaction(
-            user_email=user_email,
-            type=ttype,
-            date=date,
-            amount=float(amount),
-            category=category,
-            categoryName=categoryName
-        )
-        db.session.add(tx)
-        db.session.commit()
+    tx = Transaction(
+        user_email=user_email,
+        type=ttype,
+        date=date,
+        amount=amount,
+        category=category,
+        categoryName=categoryName
+    )
+    db.session.add(tx)
+    db.session.commit()
 
-        return jsonify({'ok': True, 'id': tx.id})
+    return jsonify({'ok': True, 'id': tx.id})
 
 @app.route('/api/transactions/<int:tx_id>', methods=['DELETE'])
 def delete_transaction(tx_id):
@@ -156,11 +180,35 @@ def setup_demo():
 
     tx_count = Transaction.query.filter_by(user_email=demo_email).count()
     if tx_count == 0:
-        demo_data = [
-            Transaction(user_email=demo_email, type='income', date='2025-08-01', amount=4000.00, category='gifts', categoryName='Gifts'),
-            Transaction(user_email=demo_email, type='expense', date='2025-07-04', amount=1700.00, category='food', categoryName='Food'),
-            Transaction(user_email=demo_email, type='income', date='2025-05-19', amount=56000.00, category='business', categoryName='Business'),
-        ]
+        demo_data = []
+        start_date = datetime(2020, 6, 1)  # Around week 24 of 2020
+        end_date = datetime(2025, 8, 31)
+        categories = ['food', 'rent', 'salary', 'investment', 'shopping', 'travel', 'gifts', 'business', 'utilities']
+        types = ['income', 'expense']
+
+        for _ in range(45):
+            # Generate a random date between start_date and end_date but only within weeks 24-32
+            while True:
+                random_days = random.randint(0, (end_date - start_date).days)
+                random_date = start_date + timedelta(days=random_days)
+                week_number = random_date.isocalendar()[1]
+                if 24 <= week_number <= 32:
+                    break
+
+            tx_date = random_date.strftime('%Y-%m-%d')
+            tx_type = random.choice(types)
+            amount = round(random.uniform(10, 5000), 2)
+            category = random.choice(categories)
+
+            demo_data.append(Transaction(
+                user_email=demo_email,
+                type=tx_type,
+                date=tx_date,
+                amount=amount,
+                category=category,
+                categoryName=category.capitalize()
+            ))
+
         db.session.bulk_save_objects(demo_data)
         db.session.commit()
 
