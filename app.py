@@ -64,21 +64,28 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/register', methods=['POST'])
-def register():
-    data = request.json or {}
+@app.route('/api/register', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json(force=True)  # ensures JSON parsed even if content-type missing
     email = (data.get('email') or '').strip()
     password = data.get('password') or ''
+
     if not email or not password:
         return jsonify({'error': 'Email and password are required.'}), 400
-    if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'User already exists.'}), 400
-    hashed = generate_password_hash(password)
-    user = User(email=email, password=hashed)
-    db.session.add(user)
-    db.session.commit()
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'error': 'Invalid email or password.'}), 401
+
+    if not check_password_hash(user.password, password):
+        return jsonify({'error': 'Invalid email or password.'}), 401
+
     session.permanent = True
     session['user_email'] = email
-    return jsonify({'message': 'Successfully registered.', 'email': email}), 200
+
+    return jsonify({'message': 'Successfully logged in.', 'email': email}), 200
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
