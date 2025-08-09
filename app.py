@@ -72,7 +72,7 @@ def register():
         return jsonify({'error': 'Email and password are required.'}), 400
 
     if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'User already exists.'}), 400
+        return jsonify({'error': 'User  already exists.'}), 400
 
     hashed = generate_password_hash(password)
     user = User(email=email, password=hashed)
@@ -88,15 +88,26 @@ def login():
     data = request.get_json(force=True)
     email = (data.get('email') or '').strip()
     password = data.get('password') or ''
+    
     if not email or not password:
         return jsonify({'error': 'Email and password are required.'}), 400
 
     user = User.query.filter_by(email=email).first()
-    if not user or not check_password_hash(user.password, password):
+    
+    # Debugging output
+    print(f"Attempting login for email: {email}")
+    
+    if not user:
+        print("User  not found.")
+        return jsonify({'error': 'Invalid email or password.'}), 401
+
+    if not check_password_hash(user.password, password):
+        print("Password does not match.")
         return jsonify({'error': 'Invalid email or password.'}), 401
 
     session.permanent = True
     session['user_email'] = email
+    print(f"User  {email} logged in successfully.")
     return jsonify({'message': 'Successfully logged in.', 'email': email}), 200
 
 @app.route('/api/logout', methods=['POST'])
