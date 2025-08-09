@@ -64,39 +64,37 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/register', methods=['POST'])
-@app.route('/api/register', methods=['POST'])
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json(force=True)  # ensures JSON parsed even if content-type missing
+def register():
+    data = request.get_json(force=True)
     email = (data.get('email') or '').strip()
     password = data.get('password') or ''
-
     if not email or not password:
         return jsonify({'error': 'Email and password are required.'}), 400
 
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'error': 'Invalid email or password.'}), 401
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'User already exists.'}), 400
 
-    if not check_password_hash(user.password, password):
-        return jsonify({'error': 'Invalid email or password.'}), 401
+    hashed = generate_password_hash(password)
+    user = User(email=email, password=hashed)
+    db.session.add(user)
+    db.session.commit()
 
     session.permanent = True
     session['user_email'] = email
-
-    return jsonify({'message': 'Successfully logged in.', 'email': email}), 200
-
+    return jsonify({'message': 'Successfully registered.', 'email': email}), 200
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    data = request.json or {}
+    data = request.get_json(force=True)
     email = (data.get('email') or '').strip()
     password = data.get('password') or ''
     if not email or not password:
         return jsonify({'error': 'Email and password are required.'}), 400
+
     user = User.query.filter_by(email=email).first()
     if not user or not check_password_hash(user.password, password):
         return jsonify({'error': 'Invalid email or password.'}), 401
+
     session.permanent = True
     session['user_email'] = email
     return jsonify({'message': 'Successfully logged in.', 'email': email}), 200
@@ -111,6 +109,7 @@ def transactions():
     user_email = require_user()
     if not user_email:
         return jsonify({'error': 'Not authenticated.'}), 401
+
     if request.method == 'GET':
         txs = Transaction.query.filter_by(user_email=user_email).order_by(Transaction.date.desc()).all()
         result = [{
@@ -123,10 +122,12 @@ def transactions():
             'categoryName': tx.categoryName or tx.category
         } for tx in txs]
         return jsonify(result)
+
     schema = TransactionSchema()
     errors = schema.validate(request.json)
     if errors:
         return jsonify(errors), 400
+
     data = request.json
     tx = Transaction(
         user_email=user_email,
@@ -145,9 +146,11 @@ def delete_transaction(tx_id):
     user_email = require_user()
     if not user_email:
         return jsonify({'error': 'Not authenticated.'}), 401
+
     tx = Transaction.query.filter_by(id=tx_id, user_email=user_email).first()
     if not tx:
         return jsonify({'error': 'Transaction not found.'}), 404
+
     db.session.delete(tx)
     db.session.commit()
     return jsonify({'message': 'Transaction deleted successfully.'}), 200
@@ -156,10 +159,12 @@ def delete_transaction(tx_id):
 def setup_demo():
     demo_email = 'harika'
     demo_password = '1234'
+
     if not User.query.filter_by(email=demo_email).first():
         user = User(email=demo_email, password=generate_password_hash(demo_password))
         db.session.add(user)
         db.session.commit()
+
     tx_count = Transaction.query.filter_by(user_email=demo_email).count()
     if tx_count == 0:
         demo_data = []
@@ -167,6 +172,7 @@ def setup_demo():
         end_date = datetime(2025, 8, 31)
         categories = ['food', 'rent', 'salary', 'investment', 'shopping', 'travel', 'gifts', 'business', 'utilities']
         types = ['income', 'expense']
+
         for _ in range(45):
             while True:
                 random_days = random.randint(0, (end_date - start_date).days)
@@ -174,10 +180,12 @@ def setup_demo():
                 week_number = random_date.isocalendar()[1]
                 if 24 <= week_number <= 32:
                     break
+
             tx_date = random_date.strftime('%Y-%m-%d')
             tx_type = random.choice(types)
             amount = round(random.uniform(10, 5000), 2)
             category = random.choice(categories)
+
             demo_data.append(Transaction(
                 user_email=demo_email,
                 type=tx_type,
@@ -186,8 +194,10 @@ def setup_demo():
                 category=category,
                 categoryName=category.capitalize()
             ))
+
         db.session.bulk_save_objects(demo_data)
         db.session.commit()
+
     return jsonify({'message': 'Demo data setup completed.'}), 200
 
 if __name__ == '__main__':
